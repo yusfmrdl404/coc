@@ -26,9 +26,6 @@
     <!-- Oyun Alanı -->
     <div class="village" id="village">
       <!-- Köy Binaları Buraya Dinamik Eklenecek -->
-      <div class="building town-hall" data-type="town-hall" data-level="1">
-        <div class="building-label">Belediye Binası<br/>Lv.1</div>
-      </div>
     </div>
 
     <!-- Menü: Bina ve Birlik Seçimi -->
@@ -42,7 +39,7 @@
       <button class="train-btn" data-type="archer">Okçu (30 İksir)</button>
     </div>
 
-    <!-- Savaş Ekranı (Gizli) -->
+    <!-- Savaş Ekranı -->
     <div class="battle-screen" id="battle-screen" style="display:none;">
       <h2>Düşman Köyüne Saldır!</h2>
       <div class="enemy-village">
@@ -57,14 +54,31 @@
   </div>
 
   <script>
-    // Oyun Durumu
-    let gameState = {
-      gold: 100,
-      elixir: 100,
-      buildings: ['town-hall'],
-      troops: [],
-      enemyBuildings: 3
-    };
+    // --- LOCAL STORAGE İLE KAYDETME/YÜKLEME ---
+    const GAME_KEY = 'mini_clash_save_v1';
+
+    function saveGame() {
+      localStorage.setItem(GAME_KEY, JSON.stringify(gameState));
+    }
+
+    function loadGame() {
+      const saved = localStorage.getItem(GAME_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      } else {
+        // Yeni oyun
+        return {
+          gold: 100,
+          elixir: 100,
+          buildings: ['town-hall'],
+          troops: [],
+          enemyBuildings: 3
+        };
+      }
+    }
+
+    // Oyun Durumu: Önce yükle, yoksa varsayılanı kullan
+    let gameState = loadGame();
 
     // DOM Elemanları
     const goldEl = document.getElementById('gold');
@@ -74,10 +88,29 @@
     const troopsDisplay = document.getElementById('troops-display');
     const attackBtn = document.getElementById('attack-btn');
 
-    // Kaynakları Güncelle
+    // Köyü HTML olarak yeniden oluştur
+    function renderVillage() {
+      villageEl.innerHTML = '';
+      gameState.buildings.forEach(type => {
+        const building = document.createElement('div');
+        building.className = `building ${type}`;
+        building.dataset.type = type;
+        if (type === 'town-hall') {
+          building.innerHTML = '<div class="building-label">Belediye Binası<br/>Lv.1</div>';
+        } else if (type === 'gold-mine') {
+          building.innerHTML = '<div class="building-label">Altın Madeni</div>';
+        } else if (type === 'elixir-collector') {
+          building.innerHTML = '<div class="building-label">İksir Toplayıcı</div>';
+        }
+        villageEl.appendChild(building);
+      });
+    }
+
+    // Kaynakları Güncelle ve Kaydet
     function updateResources() {
       goldEl.textContent = gameState.gold;
       elixirEl.textContent = gameState.elixir;
+      saveGame(); // Her güncellemede kaydet
     }
 
     // Bina Yerleştir
@@ -88,22 +121,16 @@
       if (type === 'gold-mine') gameState.gold -= 50;
       if (type === 'elixir-collector') gameState.elixir -= 50;
 
-      const building = document.createElement('div');
-      building.className = `building ${type}`;
-      building.dataset.type = type;
-      building.innerHTML = `<div class="building-label">${type === 'gold-mine' ? 'Altın Madeni' : 'İksir Toplayıcı'}</div>`;
-      villageEl.appendChild(building);
       gameState.buildings.push(type);
+      renderVillage();
       updateResources();
     }
 
     // Birlik Eğit
     function trainTroop(type) {
-      let cost = 0;
-      if (type === 'barbarian') cost = 25;
-      if (type === 'archer') cost = 30;
-
+      let cost = type === 'barbarian' ? 25 : 30;
       if (gameState.elixir < cost) return alert('Yeterli iksir yok!');
+      
       gameState.elixir -= cost;
       gameState.troops.push(type);
       updateResources();
@@ -116,7 +143,6 @@
       battleScreen.style.display = 'block';
       document.querySelector('.game-container').style.display = 'none';
 
-      // Birlikleri Göster
       troopsDisplay.innerHTML = '';
       gameState.troops.forEach(troop => {
         const troopEl = document.createElement('span');
@@ -157,7 +183,7 @@
       updateResources();
     }
 
-    // Olay Dinleyicileri
+    // --- Olay Dinleyicileri ---
     document.querySelectorAll('.build-btn').forEach(btn => {
       btn.addEventListener('click', () => placeBuilding(btn.dataset.type));
     });
@@ -170,17 +196,26 @@
     document.getElementById('start-battle').addEventListener('click', startBattle);
     document.getElementById('back-to-village').addEventListener('click', backToVillage);
 
-    // Kaynak Üretimi (Basit Otomatik)
+    // --- Otomatik Kaynak Üretimi ---
     setInterval(() => {
-      gameState.buildings.forEach(building => {
-        if (building === 'gold-mine') gameState.gold += 1;
-        if (building === 'elixir-collector') gameState.elixir += 1;
-      });
-      updateResources();
-    }, 5000); // Her 5 saniyede bir
+      let producedGold = 0;
+      let producedElixir = 0;
 
-    // Başlangıç Kaynakları
-    updateResources();
+      gameState.buildings.forEach(building => {
+        if (building === 'gold-mine') producedGold += 1;
+        if (building === 'elixir-collector') producedElixir += 1;
+      });
+
+      if (producedGold > 0 || producedElixir > 0) {
+        gameState.gold += producedGold;
+        gameState.elixir += producedElixir;
+        updateResources();
+      }
+    }, 5000);
+
+    // --- Başlangıç: Oyunu Yükle ve Render Et ---
+    renderVillage();
+    updateResources(); // Kaydetmeyi de tetikler
   </script>
 </body>
 </html>
