@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mini Clash</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="game-container">
+    <!-- Üst Bilgi Çubuğu -->
+    <div class="header">
+      <div class="resources">
+        <div class="resource gold">
+          <img src="https://cdn-icons-png.flaticon.com/512/2592/2592434.png" alt="Gold" />
+          <span id="gold">100</span>
+        </div>
+        <div class="resource elixir">
+          <img src="https://cdn-icons-png.flaticon.com/512/3073/3073623.png" alt="Elixir" />
+          <span id="elixir">100</span>
+        </div>
+      </div>
+      <button id="attack-btn">Saldır!</button>
+    </div>
+
+    <!-- Oyun Alanı -->
+    <div class="village" id="village">
+      <!-- Köy Binaları Buraya Dinamik Eklenecek -->
+      <div class="building town-hall" data-type="town-hall" data-level="1">
+        <div class="building-label">Belediye Binası<br/>Lv.1</div>
+      </div>
+    </div>
+
+    <!-- Menü: Bina ve Birlik Seçimi -->
+    <div class="menu">
+      <h3>Binalar</h3>
+      <button class="build-btn" data-type="gold-mine">Altın Madeni (50 Altın)</button>
+      <button class="build-btn" data-type="elixir-collector">İksir Toplayıcı (50 İksir)</button>
+      
+      <h3>Birlikler</h3>
+      <button class="train-btn" data-type="barbarian">Barbar (25 İksir)</button>
+      <button class="train-btn" data-type="archer">Okçu (30 İksir)</button>
+    </div>
+
+    <!-- Savaş Ekranı (Gizli) -->
+    <div class="battle-screen" id="battle-screen" style="display:none;">
+      <h2>Düşman Köyüne Saldır!</h2>
+      <div class="enemy-village">
+        <div class="enemy-building">🏰</div>
+        <div class="enemy-building">⚔️</div>
+        <div class="enemy-building">🛡️</div>
+      </div>
+      <div class="troops-display" id="troops-display"></div>
+      <button id="start-battle">Savaşı Başlat!</button>
+      <button id="back-to-village">Köye Dön</button>
+    </div>
+  </div>
+
+  <script>
+    // Oyun Durumu
+    let gameState = {
+      gold: 100,
+      elixir: 100,
+      buildings: ['town-hall'],
+      troops: [],
+      enemyBuildings: 3
+    };
+
+    // DOM Elemanları
+    const goldEl = document.getElementById('gold');
+    const elixirEl = document.getElementById('elixir');
+    const villageEl = document.getElementById('village');
+    const battleScreen = document.getElementById('battle-screen');
+    const troopsDisplay = document.getElementById('troops-display');
+    const attackBtn = document.getElementById('attack-btn');
+
+    // Kaynakları Güncelle
+    function updateResources() {
+      goldEl.textContent = gameState.gold;
+      elixirEl.textContent = gameState.elixir;
+    }
+
+    // Bina Yerleştir
+    function placeBuilding(type) {
+      if (type === 'gold-mine' && gameState.gold < 50) return alert('Yeterli altın yok!');
+      if (type === 'elixir-collector' && gameState.elixir < 50) return alert('Yeterli iksir yok!');
+
+      if (type === 'gold-mine') gameState.gold -= 50;
+      if (type === 'elixir-collector') gameState.elixir -= 50;
+
+      const building = document.createElement('div');
+      building.className = `building ${type}`;
+      building.dataset.type = type;
+      building.innerHTML = `<div class="building-label">${type === 'gold-mine' ? 'Altın Madeni' : 'İksir Toplayıcı'}</div>`;
+      villageEl.appendChild(building);
+      gameState.buildings.push(type);
+      updateResources();
+    }
+
+    // Birlik Eğit
+    function trainTroop(type) {
+      let cost = 0;
+      if (type === 'barbarian') cost = 25;
+      if (type === 'archer') cost = 30;
+
+      if (gameState.elixir < cost) return alert('Yeterli iksir yok!');
+      gameState.elixir -= cost;
+      gameState.troops.push(type);
+      updateResources();
+      alert(`${type === 'barbarian' ? 'Barbar' : 'Okçu'} eğitildi!`);
+    }
+
+    // Savaş Ekranını Göster
+    function showBattleScreen() {
+      if (gameState.troops.length === 0) return alert('Savaşmak için birlik eğit!');
+      battleScreen.style.display = 'block';
+      document.querySelector('.game-container').style.display = 'none';
+
+      // Birlikleri Göster
+      troopsDisplay.innerHTML = '';
+      gameState.troops.forEach(troop => {
+        const troopEl = document.createElement('span');
+        troopEl.textContent = troop === 'barbarian' ? '🪓' : '🏹';
+        troopEl.style.fontSize = '24px';
+        troopEl.style.margin = '5px';
+        troopsDisplay.appendChild(troopEl);
+      });
+    }
+
+    // Savaşı Başlat
+    function startBattle() {
+      const enemyCount = gameState.enemyBuildings;
+      const troopCount = gameState.troops.length;
+      let result = '';
+
+      if (troopCount > enemyCount) {
+        result = 'Zafer! 🏆\n+50 Altın, +50 İksir kazandın!';
+        gameState.gold += 50;
+        gameState.elixir += 50;
+      } else if (troopCount === enemyCount) {
+        result = 'Berabere! 😐\n+20 Altın, +20 İksir.';
+        gameState.gold += 20;
+        gameState.elixir += 20;
+      } else {
+        result = 'Mağlubiyet! 😢\nBirliklerin yok oldu.';
+        gameState.troops = [];
+      }
+
+      alert(result);
+      backToVillage();
+    }
+
+    // Köye Dön
+    function backToVillage() {
+      battleScreen.style.display = 'none';
+      document.querySelector('.game-container').style.display = 'flex';
+      updateResources();
+    }
+
+    // Olay Dinleyicileri
+    document.querySelectorAll('.build-btn').forEach(btn => {
+      btn.addEventListener('click', () => placeBuilding(btn.dataset.type));
+    });
+
+    document.querySelectorAll('.train-btn').forEach(btn => {
+      btn.addEventListener('click', () => trainTroop(btn.dataset.type));
+    });
+
+    attackBtn.addEventListener('click', showBattleScreen);
+    document.getElementById('start-battle').addEventListener('click', startBattle);
+    document.getElementById('back-to-village').addEventListener('click', backToVillage);
+
+    // Kaynak Üretimi (Basit Otomatik)
+    setInterval(() => {
+      gameState.buildings.forEach(building => {
+        if (building === 'gold-mine') gameState.gold += 1;
+        if (building === 'elixir-collector') gameState.elixir += 1;
+      });
+      updateResources();
+    }, 5000); // Her 5 saniyede bir
+
+    // Başlangıç Kaynakları
+    updateResources();
+  </script>
+</body>
+</html>
